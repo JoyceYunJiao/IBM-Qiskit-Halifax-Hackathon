@@ -1,0 +1,303 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "b0bc6046-bca0-4d3f-983a-e039646c8100",
+   "metadata": {},
+   "source": [
+    "# Introduction "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "fe1bd443-335b-453d-bac8-7787dde3b2d4",
+   "metadata": {},
+   "source": [
+    "This projects simulates an Ising model to find the total magnitization over time, as a magnatic wave passes through the praticles.\n",
+    "In this Ising model, each particle corresponds to a qubit, where the state of the qubit represents either spin up or spin down.\n",
+    "The Hamiltonian for the model is $H = 0.25 \\cdot ( Z \\otimes Z \\otimes I + I \\otimes Z \\otimes Z ) + 1 \\cdot ( X \\otimes I \\otimes I + I \\otimes X \\otimes I + I \\otimes I \\otimes X )$.\n",
+    "This indicates that the particles as connected along a line graph, where the magnetic field can flip the spin of each particle with equal probability.\n",
+    "The exact solution at time $t$ would be $e^{-iHt} |000>$, where initially all particles have the same spin.\n",
+    "However, computing the magnetization at each timestep from $t=0$ to $t=1$ would be very slow, when there are many qubits (say $n$), since $e^{-iHt}$ is the exponential of a matrix of dimension $2^n$."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7f2ef745-4bf9-4736-84d9-68be5359c792",
+   "metadata": {},
+   "source": [
+    "Each particle in the Ising model has a magnetic moment.\n",
+    "For the first particle, this is the expectation of measuring $Z \\otimes I \\otimes I$, since the measurement outcome collapses the first qubit to either $|0>$ or $1>$\n",
+    "Likewise, for the second particle, this is the expectation of measuring $I \\otimes Z \\otimes I$.\n",
+    "The net magnetic moment is the sum of the expectations of each measurement."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "394aa1cd-b4d5-49be-8876-edbdfc182ea0",
+   "metadata": {},
+   "source": [
+    "We use an approximation method to overcome the slowness of computing the exact solution.\n",
+    "In many approximation methods, we assume the solution has a specific form.\n",
+    "Typicially, we use a parameterized circuit, called ansatz, for which we modify the prarameters to improve the solution.\n",
+    "However, most approximation methods to improve these parameters still require computing the expectation of a quantum system.\n",
+    "Since the ansatz is a quantum circuit, we can run this circuit on a quantum computer to estimate the expectation.\n",
+    "This method is referred to as the vartional quantum eigensolve (VQE) method.\n",
+    "In this problem, we use VQE to approximate the total magnetization over time of our Ising model."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d6707cc3-2495-46a7-8fcb-251a4c8890d1",
+   "metadata": {},
+   "source": [
+    "# Description of the Circuit"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "09cf282b-5f45-4f26-91e0-a9422a79c36b",
+   "metadata": {},
+   "source": [
+    "We are using a hybrid algorithm, with both a classical component and a quantum component.\n",
+    "The classical component is uses the limited-memory BFSG bounded optimizer to compute the next parameter for the ansatz.\n",
+    "This optimizer is meant to balance efficiency and accuracy.\n",
+    "The quantum aspect is the `EfficientU2` template, which uses layers of Pauli-rotations and controlled-not gates to estimate arbitrary quantum circuits.\n",
+    "Given our choice of configurations, we obtain the following ansatz."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "94e4f121-3bdc-4540-b0c1-97e05b84ae9c",
+   "metadata": {
+    "tags": []
+   },
+   "source": [
+    "![title](Ansatz.jpg)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "f198022e-0adb-43e2-bec9-f27c5e125f7f",
+   "metadata": {},
+   "source": [
+    "This network is three layers deep, and by the approximate choice of parameters, can approximate many Hamiltonians with reasonable precision.\n",
+    "In this diagram, the $R_y$ and $R_z$ are the rotations from $SU(2)$ (we can write the $R_x$ using $R_y$ and $R_z$).\n",
+    "The vector elements $\\theta[0]$ through to $\\theta[23]$ are the parameters."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "697ff38e-23af-46bd-88c3-33245e742a07",
+   "metadata": {},
+   "source": [
+    "# Description of the Experiment"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a036ff14-300a-43ff-b883-3d33c42ef517",
+   "metadata": {},
+   "source": [
+    "In our experiment, we use VQE to approximate the state of the Ising model at various timesteps.\n",
+    "We also use classical computing to compute the exact solution.\n",
+    "Both parts of the experiment are described below."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "856ae2f2-82b4-466d-bbf1-564cfe54b59a",
+   "metadata": {},
+   "source": [
+    "### Experiment: Simulating the Hamiltonian"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "36542ff8-ec3c-4030-9193-23d6878a4ed7",
+   "metadata": {},
+   "source": [
+    "We run VQE using the ansats and optimizer described above.\n",
+    "We perform two experiments.\n",
+    "In the first experiment, we simulate the Ising model from time $t=0$ to time $t=1$ using $10$ timesteps.\n",
+    "In the second experiment, we extend the results by simulating the Ising model from $t=0$ to $t=2$ with $20$ timesteps."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "addfbf3b-7cdc-4099-ad0f-df5812e69e24",
+   "metadata": {},
+   "source": [
+    "### Ground Truth: Computing the Exact Solution"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "0ceacfa4-0014-4cb7-b5fc-c98efd7a21ba",
+   "metadata": {},
+   "source": [
+    "We know that the state at time $t$ is $e^{-iHt} |00>$.\n",
+    "Since we only have $3$ qubits, this is the exponential of an $8$-dimensional matrix.\n",
+    "This means that in this toy example, we can compute the exact solution as well.\n",
+    "We use this to evaluate the results from the VQE algorithm.\n",
+    "We start at $t=0$, and increase by the timestep used in the VQE algorith, until we reach the final time.\n",
+    "At each time step $t_j$, we use the `expectation_value` method of a `Statevector` to compute the exact solution at time $t_j$.\n",
+    "This allows us to compare our results to the real solution."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "16ff16ee-61ab-44d0-97be-200896098c39",
+   "metadata": {
+    "tags": []
+   },
+   "source": [
+    "# Description of the Result of the Experiment"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7ac6f6a4-276e-47ca-9280-df20d7ead75f",
+   "metadata": {},
+   "source": [
+    "We describe both experiments below."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3b47f067-78cd-40a6-b4a6-4483edf3ec19",
+   "metadata": {},
+   "source": [
+    "### Experiment 1"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "4025613b-f2d1-4c3e-83c1-a9cbe7589d52",
+   "metadata": {},
+   "source": [
+    "In the first experiment, we simulate the Ising model for $1$ second.\n",
+    "The experiment required $10$ minutes to run, using a quantum simulator.\n",
+    "The table of results are given below, along with a graph of the approximated solution compared to the exact solution."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b202f162-5bf4-43b4-92f3-9aca551c0760",
+   "metadata": {
+    "tags": []
+   },
+   "source": [
+    "![title](Magnetization_ZZZ_10timestep.jpg)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "57278c35-8c73-43fc-8a60-a128fe07fd57",
+   "metadata": {
+    "tags": []
+   },
+   "source": [
+    "![title](Results_ZZZ_10Timestep.jpg)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "0e2d4c2b-c5d1-4caf-9820-1f3538d5ff3c",
+   "metadata": {},
+   "source": [
+    "As we can see, the simulated results fit the ground truth very well.\n",
+    "The net magnetization is reduced from $3$ to $-1$, which suggests that the next magnetization changes spin direction.\n",
+    "We also report on the estimated observable for the hamiltonian, which describes the total energy.\n",
+    "We would expect the total energy to remain constant, since we are observing a closed system modeled by the hamiltonian.\n",
+    "This suggests some error, but the results stay close to $0.5$."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c6986529-369d-42ce-90dd-02bd4b27355f",
+   "metadata": {},
+   "source": [
+    "### Experiment 2"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "9f26e914-1b16-42aa-aa0b-d5f8516ee659",
+   "metadata": {},
+   "source": [
+    "In the second experiment, we simulate the Ising model for $2$ seconds.\n",
+    "The experiment required $22$ mintues to run.\n",
+    "The results continue the trend observed in experiment 1.\n",
+    "However, the magnetization begins to change spin again around $t=1.5$, tending back towards a net magnetization of $0$ (no magnetization).\n",
+    "Further experiments would be required to determine if the system is osillating."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "634ccf32-3a1e-46a5-9c7c-7052062a19a0",
+   "metadata": {
+    "tags": []
+   },
+   "source": [
+    "![title](Magnetization_ZZZ_20TimeStep_Time2.jpg)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c6fc8be4-787d-4fd2-927c-6aaa8359d2e2",
+   "metadata": {},
+   "source": [
+    "![title](Results_ZZZ_10Timestep(1).jpg)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e35ab628-1ee7-4e1f-b7e4-cfe3a2175bea",
+   "metadata": {},
+   "source": [
+    "# Why Quantum Computing?"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "626923bf-0905-43d1-ad73-1d66b09711bc",
+   "metadata": {},
+   "source": [
+    "Quantum computing is suitable for such problem since it can simulate the state of a qubit in the Ising model.\n",
+    "More specifically, if we were to simulate the system on a classical computer for $3$ particles, we would need to track $2^n$ complex numbers (up to some precision).\n",
+    "In contrast, the quantum system inherently tracks these $2^n$ complex numbers in the physical state of an $n$ qubit quantum computer!\n",
+    "This clearly scales much better ($2^n$ versus $n$), and requires no approximation.\n",
+    "Furthermore, we approximate the state of the system with an quantum circuit (an ansatz) which is well-suited for simulation on a quantum computer."
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Qiskit v1.0.1 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.10.8"
+  },
+  "widgets": {
+   "application/vnd.jupyter.widget-state+json": {
+    "state": {},
+    "version_major": 2,
+    "version_minor": 0
+   }
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
