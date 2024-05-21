@@ -1,0 +1,1 @@
+First-place winner in utilizing a VQE (Variable Quantum Eigensolver) on a quantum computer to model the time-evolution of an Ising model, with a focus on calculating the total magnetic energy of particles as a magnetic wave propagates through them.
